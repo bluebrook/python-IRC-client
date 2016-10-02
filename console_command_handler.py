@@ -1,4 +1,5 @@
 import sys
+import signal
 
 class ConsoleComandHandler(object):
     
@@ -10,10 +11,10 @@ class ConsoleComandHandler(object):
     def __init__(self):
         self._commands = {}
     
-    def AddCommand(self, name, handler_func, argc):
+    def AddCommand(self, name, argc, handler):
         if name is None:
             raise Exception, "empty command name"
-        self._commands[name.lower()] = ConsoleComandHandler.CommandEntry(handler_func, argc)
+        self._commands[name.lower()] = ConsoleComandHandler.CommandEntry(handler, argc)
     
     def ParseCommand(self, cmd, client):
 
@@ -41,29 +42,30 @@ class ConsoleComandHandler(object):
             print "Insufficient argments"
             return
          
-        self._commands.get(name)(client, *args)
+        self._commands.get(name).func(client, *args)
 
 def msgCommand(client, *args):
     to = args[0]
-    text = args[1]
+    text = " ".join(args[1:])
+    text = text.rstrip("\n")
     print "To {}: {}".format(to, text)
-    client.sendIRC("PRIVMSG {} :{}".format(to, text))
+    client.SendIRC("PRIVMSG {} :{}".format(to, text))
     
 def joinCommand(client, channel):
     if channel[0] != "#":
         channel.insert(0, "#")
-    client.sendIRC("JOIN {}".format(channel))
+    client.SendIRC("JOIN {}".format(channel))
 
 def partCommand(client, channel):
     if channel[0] != "#":
         channel.insert(0, "#")
-    client.sendIRC("JOIN {}".format(channel))
+    client.SendIRC("JOIN {}".format(channel))
     
 def ctcpCommand(client, *args):
     to = args[0]
     text = "".join(args)
     print "To {}: {}".format(to, text)
-    client.sendIRC("PRIVMSG {} :\001{}\001".format(to, text))
+    client.SendIRC("PRIVMSG {} :\001{}\001".format(to, text))
 
 commandHandler = ConsoleComandHandler()
 
@@ -79,11 +81,14 @@ def inputHandler(client):
             break
         if cmdline == "":
             continue
-        
-        if cmdline == "quit":
-            break
+        print cmdline
+        cmdline.rstrip("\n")
+        if cmdline.rstrip("\n") == "quit":
+            print "cmdline handler exit"
+            sys.exit()
+            return
          
         if cmdline.startswith("/"):
             commandHandler.ParseCommand(cmdline, client)
         else:
-            client.sendIRC(cmdline)
+            client.SendIRC(cmdline)

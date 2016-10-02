@@ -1,6 +1,3 @@
-from irc_client import IRCClient
-
-
 class IRCMessage(object):
     ''' store IRC messages '''
     def __init__(self, cmd=None, prefix=None, params=None):
@@ -9,45 +6,39 @@ class IRCMessage(object):
         self.parameters = params
 
 class IRCCommandHandler(object):
-    ircCommandTable = {
-        "PRIVMSG": HandlePrivMsg,
-        "NOTICE":  HandleNotice,
-        "JOIN":    HandleChannelJoinPart,
-        "PART":    HandleChannelJoinPart,
-        "NICK":    HandleUserNickChange,
-        "QUIT":    HandleUserQuit,
-        "353":     HandleChannelNamesList,
-        "433":     HandleNicknameInUse,
-        "001":     HandleServerMessage,
-        "002":     HandleServerMessage,
-        "003":     HandleServerMessage,
-        "004":     HandleServerMessage,
-        "005":     HandleServerMessage,
-        "250":     HandleServerMessage,
-        "251":     HandleServerMessage,
-        "252":     HandleServerMessage,
-        "253":     HandleServerMessage,
-        "254":     HandleServerMessage,
-        "255":     HandleServerMessage,
-        "264":     HandleServerMessage,
-        "255":     HandleServerMessage,
-        "256":     HandleServerMessage,
-        "366":     HandleServerMessage,
-        "372":     HandleServerMessage,
-        "375":     HandleServerMessage,
-        "439":     HandleServerMessage,
-    }
+    ircCommandTable = {}
     
     def __init__(self, client):
         self._client = client
-
-    def handle(self, command, irc_msg):
-        if command not in self.ircCommandTable:
-            raise Exception, "no command '{}' found".format(command)
-        
-        self.ircCommandTable["command"](irc_msg)
-        
-         
+        self.ircCommandTable = {
+            "PRIVMSG": IRCCommandHandler.HandlePrivMsg,
+            "NOTICE":  IRCCommandHandler.HandleNotice,
+            "JOIN":    IRCCommandHandler.HandleChannelJoinPart,
+            "PART":    IRCCommandHandler.HandleChannelJoinPart,
+            "NICK":    IRCCommandHandler.HandleUserNickChange,
+            "QUIT":    IRCCommandHandler.HandleUserQuit,
+            "353":     IRCCommandHandler.HandleChannelNamesList,
+            "433":     IRCCommandHandler.HandleNicknameInUse,
+            "001":     IRCCommandHandler.HandleServerMessage,
+            "002":     IRCCommandHandler.HandleServerMessage,
+            "003":     IRCCommandHandler.HandleServerMessage,
+            "004":     IRCCommandHandler.HandleServerMessage,
+            "005":     IRCCommandHandler.HandleServerMessage,
+            "250":     IRCCommandHandler.HandleServerMessage,
+            "251":     IRCCommandHandler.HandleServerMessage,
+            "252":     IRCCommandHandler.HandleServerMessage,
+            "253":     IRCCommandHandler.HandleServerMessage,
+            "254":     IRCCommandHandler.HandleServerMessage,
+            "255":     IRCCommandHandler.HandleServerMessage,
+            "264":     IRCCommandHandler.HandleServerMessage,
+            "265":     IRCCommandHandler.HandleServerMessage,
+            "266":     IRCCommandHandler.HandleServerMessage,
+            "366":     IRCCommandHandler.HandleServerMessage,
+            "372":     IRCCommandHandler.HandleServerMessage,
+            "375":     IRCCommandHandler.HandleServerMessage,
+            "376":     IRCCommandHandler.HandleServerMessage,
+            "439":     IRCCommandHandler.HandleServerMessage,
+        }
     def HandlePrivMsg(self, irc_msg):
         
         to = irc_msg.parameters[0]
@@ -78,7 +69,7 @@ class IRCCommandHandler(object):
             ctcp = tmp[0]
             print "[ {} {} {} reply]: ".format(fr, ctcp, tmp[1])
         else:
-            print "-" + fr + "- "
+            print "-" + fr + "- " + text
             
     
     def HandleChannelJoinPart(self, irc_msg):
@@ -109,8 +100,8 @@ class IRCCommandHandler(object):
     
     
     def HandleServerMessage(self, irc_msg):
-        params = irc_msg.parameters
-        
+        params = irc_msg.parameters[1:]
+
         if len(params) == 0:
             return
         
@@ -131,4 +122,10 @@ class IRCCommandHandler(object):
                 self._client.SendIRC("NOTICE {} :\001VERSION Open source IRC"
                                      "cleint by Bluebrook \001".format(prefix.nick))
                 return
-            self._client.SendIRC("NOTICE {} :\001ERRMSG {} :Not implemented\001".format(prefix.nick, text))
+            self._client.SendIRC("NOTICE {} :\001ERRMSG {} :Not implemented\001".format(prefix.nick, text))    
+    
+    def handle(self, command, irc_msg):
+        if command not in self.ircCommandTable:
+            raise Exception, "no command '{}' found".format(command)
+        else:
+            self.ircCommandTable[command](self, irc_msg)

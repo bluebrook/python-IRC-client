@@ -6,10 +6,10 @@ class IRCComandPrefix(object):
         The format is nick!user@host
     '''
     def __init__(self):
-        self.prefix = None
-        self.nick = None
-        self.user = None
-        self.host = None
+        self.prefix = ""
+        self.nick = ""
+        self.user = ""
+        self.host = ""
         
     def Parse(self, data):
         if len(data) == 0:
@@ -41,22 +41,28 @@ class IRCClient(object):
         self._nick = None
         self._user = None
         self.command_handler = IRCCommandHandler(self)
+        self.incomplete_msg = ""
         
     def HandleCommand(self, irc_msg):pass
     def CallHook(self, command, irc_msg):pass
     
     def InitSocket(self):
-        self._socket.Init()
+        return self._socket.Init()
+        
+    def Connect(self, host, port):
+        return self._socket.Connect(host, port)
+    
     def Disconnect(self):
         self._socket.Disconnect()
+        
     def Connected(self):
-        return self._socket.Connected()
+        return self._socket is not None
     
     def SendIRC(self, data):
         data = data + "\n"
-        self._socket.SendData(data)
+        return self._socket.SendData(data)
         
-    def Login(self, nick, user, passwd):
+    def Login(self, nick, user, passwd=""):
         self._nick = nick
         self._user = user 
         
@@ -70,47 +76,50 @@ class IRCClient(object):
         return False
     
     def ReceiveData(self):
-        buffer = self.ReceiveData()
+        buffer = self._socket.ReceiveData()
         lines = buffer.split("\n")
-        for line in lines:
-            self.Parse(line.rstrip("\r"))
-   
+        
+        last_line = ""
+        if "\r" not in lines[-1]:
+            last_line = lines.pop(-1)
+        
+        if len(lines) > 0:
+            if self.incomplete_msg != "":
+                lines[0] = self.incomplete_msg + lines[0]
+                self.incomplete_msg = ""
+            for line in lines:
+                line=line.rstrip("\r")
+                self.Parse(line)
+        
+        self.incomplete_msg += last_line
+        
     def Parse(self, data):
         
         orig = data[:]
         cmdPrefix = IRCComandPrefix()
-        
-        if len(data==0):
+        if len(data) == 0:
             return 
         
+        #import pdb; pdb.set_trace()
         # parse command prefix
-        if data[0] == ":":
-            cmdPrefix.Parse(data)
-            data = data[data.find(" ")+1]
+        if data.startswith(":"):
+            cmdPrefix.Parse(data[1:])
+            data = data[data.find(" ")+1:]
         
         s = data.split(" ", 1)
-        command = s[0].lower()
+        command = s[0].upper()
         
         parameters = []
         
         if len(s) > 1:
             data= s[1]
-            if data[0] == ":":
-                parameters.append(data[1:])
-            else:
-                pos1 = 0
-                pos2 = data.find(" ", pos1)
-                while pos2 != -1:
-                    parameters.append(data[pos1, pos2-pos1])
-                    pos1 = pos2 + 1
-                    if (data[pos1] == ":"):
-                        parameters.append(data[pos1+1:])
-                        break
-                    pos2 = data.find(" ", pos1)
-                    
-                if len(parameters) == 0:
-                    parameters.append(data)
-                
+            tmp = data.split(" ")
+            for i, item in enumerate(tmp):
+                if item.startswith(":"):
+                    break
+                else:
+                    parameters.append(item)
+            parameters.append(" ".join(tmp[i:]).lstrip(":"))
         
         if command == 'ERROR':
             print orig
@@ -119,12 +128,21 @@ class IRCClient(object):
         
         if command == 'PING':
             print "Ping? Pong"
-            self.SendIRC("PONG :" + self.parameters[0])
+            self.SendIRC("PONG :" + parameters[0])
             return
         
         irc_msg = IRCMessage(command, cmdPrefix, parameters)
-        
-        self.command_handler.handle(command, irc_msg)
-
+        try:
+            self.command_handler.handle(command, irc_msg)
+        except Exception as e:
+            print orig
+            
     def Debug(self, debug):
         self._debug = debug
+
+if __name__ == "__main__":
+    tc = IRCClient()
+    tc.InitSocket()
+    tc.Connect("chat.freenode.net", 8000)
+    tc.ReceiveData()
+    tc.SendIRC("\list")

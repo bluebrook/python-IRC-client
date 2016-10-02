@@ -3,6 +3,14 @@ import sys
 import threading
 from console_command_handler import inputHandler
 from irc_client import IRCClient
+import signal
+
+running = False
+
+def signalHandler(*arg):
+    global running
+    running = False
+
 
 def main():
     argv = sys.argv
@@ -11,10 +19,11 @@ def main():
     if argc < 3:
         print "Insuficient parameters: host port [nick] [user]" 
         return 1
-    host = argv
-    port = argv[2]
- 
-    nick = "MyIRCClient"
+    host = argv[1]
+    port = int(argv[2])
+    
+    print host, port
+    nick = "mirrorsymmetry2"
     user = "IRCClient"
     
     if argc >= 4:
@@ -35,12 +44,17 @@ def main():
             print "Connected. Loggin in..." 
             if client.Login(nick, user):
                 print "Logged"
-                running = True
+                global running
+                running = True 
+                signal.signal(signal.SIGINT, signalHandler)
+                
                 while (client.Connected() and running):
-                    client.ReceiveData();
+                    client.ReceiveData()
             if client.Connected():
-                client.Disconnected()
+                client.Disconnect()
         print "Disconnected"
-        
+    
+    #t.join()
+    
 if __name__ == "__main__":
     main()
